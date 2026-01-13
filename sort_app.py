@@ -2,6 +2,7 @@ import pandas as pd
 import streamlit as st
 from io import BytesIO
 
+
 st.title("📊 App Sort & Filter Dữ Liệu Excel")
 
 uploaded_file = st.file_uploader("Chọn file Excel", type=["xlsx"])
@@ -25,13 +26,27 @@ if uploaded_file:
     st.subheader("Dữ liệu sau khi chọn header")
     st.dataframe(df, use_container_width=True)
 
-    # Sort
+    # Sort (tự nhận diện ngày / số / chữ)
     sort_col = st.selectbox("Chọn cột để sort", df.columns)
     order = st.radio("Chiều sắp xếp", ["Tăng dần (A-Z)", "Giảm dần (Z-A)"])
-    sorted_df = df.sort_values(
-        by=sort_col,
-        ascending=(order == "Tăng dần (A-Z)")
+
+    col = df[sort_col]
+
+    parsed_date = pd.to_datetime(
+        col,
+        format="%d/%m/%Y %H:%M:%S",
+        errors="coerce"
     )
+
+    if parsed_date.notna().sum() > 0:
+        df["_sort_key"] = parsed_date
+    else:
+        df["_sort_key"] = col
+
+    sorted_df = df.sort_values(
+        by="_sort_key",
+        ascending=(order == "Tăng dần (A-Z)")
+    ).drop(columns="_sort_key")
 
     # Filter
     filter_col = st.selectbox("Chọn cột để lọc", df.columns)
@@ -51,7 +66,7 @@ if uploaded_file:
         hide_index=True
     )
 
-    # Xuất Excel (đúng dữ liệu sau sort + filter)
+    # Xuất Excel
     buffer = BytesIO()
     filtered_df.to_excel(buffer, index=False, engine="openpyxl")
     buffer.seek(0)
